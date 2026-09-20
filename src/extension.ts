@@ -66,14 +66,14 @@ export function activate(context: vscode.ExtensionContext) {
     const taskProvider = new TaskTreeProvider(context);
     vscode.window.registerTreeDataProvider('vish-tasks', taskProvider);
 
-    // Força o VS Code a abrir a barra lateral do Vish imediatamente
-    vscode.commands.executeCommand('vish-tasks.focus');
-
     // Recupera tarefas para a notificação de abertura
     let tasks: Task[] = context.workspaceState.get<Task[]>(TASKS_KEY, []);
     const pendingTasks = tasks.filter(t => !t.done);
     
     if (pendingTasks.length > 0) {
+
+        // Força o VS Code a abrir a barra lateral do Vish imediatamente
+        vscode.commands.executeCommand('vish-tasks.focus');
         vscode.window.showInformationMessage(
             `Lembrete: Você tem ${pendingTasks.length} tarefa(s) pendente(s).`,
             'Abrir Vish'

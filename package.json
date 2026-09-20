@@ -3,7 +3,11 @@
   "displayName": "Vish",
   "description": "Deixou o código pela metade? O Vish te lembra o que você precisa terminar.",
   "version": "0.0.1",
-  "publisher": "gygaweb",
+  "publisher": "gygaweb","license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Gygaweb/vish-vscode-extension.git"
+  },
   "icon": "icon.png",
   "engines": {
     "vscode": "^1.138.0"
