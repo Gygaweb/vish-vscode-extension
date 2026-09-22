@@ -46,6 +46,16 @@
         "title": "Alternar Status"
       },
       {
+        "command": "workspace-todo.copyTask",
+        "title": "Copiar Tarefa",
+        "icon": "$(copy)"
+      },
+      {
+        "command": "workspace-todo.deleteTask",
+        "title": "Excluir Tarefa",
+        "icon": "$(trash)"
+      },
+      {
         "command": "workspace-todo.clearDone",
         "title": "Limpar Concluídas"
       },
@@ -53,6 +63,37 @@
         "command": "workspace-todo.refresh",
         "title": "Atualizar Lista",
         "icon": "$(refresh)"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "workspace-todo.addTask",
+        "key": "ctrl+alt+n"
+      },
+      {
+        "command": "workspace-todo.toggleTask",
+        "key": "ctrl+enter",
+        "when": "view == vish-tasks && listFocus"
+      },
+      {
+        "command": "workspace-todo.copyTask",
+        "key": "ctrl+shift+c",
+        "when": "view == vish-tasks && listFocus"
+      },
+      {
+        "command": "workspace-todo.deleteTask",
+        "key": "ctrl+shift+backspace",
+        "when": "view == vish-tasks && listFocus"
+      },
+      {
+        "command": "workspace-todo.clearDone",
+        "key": "ctrl+alt+backspace",
+        "when": "view == vish-tasks"
+      },
+      {
+        "command": "workspace-todo.refresh",
+        "key": "ctrl+alt+r",
+        "when": "view == vish-tasks"
       }
     ],
     "menus": {
@@ -66,6 +107,18 @@
           "command": "workspace-todo.refresh",
           "when": "view == vish-tasks",
           "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "workspace-todo.copyTask",
+          "when": "view == vish-tasks && viewItem == task",
+          "group": "inline"
+        },
+        {
+          "command": "workspace-todo.deleteTask",
+          "when": "view == vish-tasks && viewItem == task",
+          "group": "inline"
         }
       ]
     }

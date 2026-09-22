@@ -6,6 +6,8 @@ interface Task {
     done: boolean;
 }
 
+type TaskReference = Task | TaskItem;
+
 const TASKS_KEY = 'workspace-todo.tasks';
 
 // 1. Classe que fornece os dados para a Barra Lateral
@@ -56,6 +58,7 @@ class TaskItem extends vscode.TreeItem {
         public readonly command?: vscode.Command
     ) {
         super(label, collapsibleState);
+        this.contextValue = id ? 'task' : undefined;
         this.tooltip = `${this.label}`;
         this.description = this.done ? 'Concluída' : 'Pendente';
     }
@@ -64,7 +67,14 @@ class TaskItem extends vscode.TreeItem {
 export function activate(context: vscode.ExtensionContext) {
     // Instancia e registra o provedor da barra lateral
     const taskProvider = new TaskTreeProvider(context);
-    vscode.window.registerTreeDataProvider('vish-tasks', taskProvider);
+    const taskTree = vscode.window.createTreeView('vish-tasks', { treeDataProvider: taskProvider });
+    let selectedTaskId: string | undefined;
+    context.subscriptions.push(taskTree, taskTree.onDidChangeSelection(event => {
+        selectedTaskId = event.selection[0]?.id;
+    }));
+
+    const selectedTask = (taskClicked?: TaskReference): TaskReference | undefined => taskClicked ??
+        (selectedTaskId ? { id: selectedTaskId, text: '', done: false } : undefined);
 
     // Recupera tarefas para a notificação de abertura
     let tasks: Task[] = context.workspaceState.get<Task[]>(TASKS_KEY, []);
@@ -96,13 +106,49 @@ export function activate(context: vscode.ExtensionContext) {
     });
 
     // Comando: Alternar status ao clicar no item da barra lateral
-    const toggleTaskCmd = vscode.commands.registerCommand('workspace-todo.toggleTask', async (taskClicked: Task) => {
+    const toggleTaskCmd = vscode.commands.registerCommand('workspace-todo.toggleTask', async (taskClicked?: TaskReference) => {
+        const task = selectedTask(taskClicked);
+        if (!task) {
+            return;
+        }
         let currentTasks = context.workspaceState.get<Task[]>(TASKS_KEY, []);
-        const taskIndex = currentTasks.findIndex(t => t.id === taskClicked.id);
+        const taskIndex = currentTasks.findIndex(t => t.id === task.id);
         
         if (taskIndex > -1) {
+            const completing = !currentTasks[taskIndex].done;
             currentTasks[taskIndex].done = !currentTasks[taskIndex].done;
             await context.workspaceState.update(TASKS_KEY, currentTasks);
+            taskProvider.refresh();
+            if (completing) {
+                process.stdout.write('\u0007');
+            }
+        }
+    });
+
+    const copyTaskCmd = vscode.commands.registerCommand('workspace-todo.copyTask', async (taskClicked?: TaskReference) => {
+        const reference = selectedTask(taskClicked);
+        const task = context.workspaceState.get<Task[]>(TASKS_KEY, []).find(t => t.id === reference?.id);
+        if (task) {
+            await vscode.env.clipboard.writeText(task.text);
+            vscode.window.showInformationMessage('Tarefa copiada para o clipboard.');
+        }
+    });
+
+    const deleteTaskCmd = vscode.commands.registerCommand('workspace-todo.deleteTask', async (taskClicked?: TaskReference) => {
+        const currentTasks = context.workspaceState.get<Task[]>(TASKS_KEY, []);
+        const reference = selectedTask(taskClicked);
+        const task = currentTasks.find(t => t.id === reference?.id);
+        if (!task) {
+            return;
+        }
+
+        const confirmation = await vscode.window.showWarningMessage(
+            `Excluir a tarefa “${task.text}”?`,
+            { modal: true },
+            'Excluir'
+        );
+        if (confirmation === 'Excluir') {
+            await context.workspaceState.update(TASKS_KEY, currentTasks.filter(t => t.id !== task.id));
             taskProvider.refresh();
         }
     });
@@ -120,7 +166,7 @@ export function activate(context: vscode.ExtensionContext) {
         taskProvider.refresh();
     });
 
-    context.subscriptions.push(addTaskCmd, toggleTaskCmd, clearDoneCmd, refreshCmd);
+    context.subscriptions.push(addTaskCmd, toggleTaskCmd, copyTaskCmd, deleteTaskCmd, clearDoneCmd, refreshCmd);
 }
 
 export function deactivate() {}
