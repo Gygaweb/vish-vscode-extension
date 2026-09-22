@@ -2,7 +2,7 @@
   "name": "vish",
   "displayName": "Vish",
   "description": "Deixou o código pela metade? O Vish te lembra o que você precisa terminar.",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "publisher": "gygaweb","license": "MIT",
   "repository": {
     "type": "git",
