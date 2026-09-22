@@ -1,14 +1,112 @@
 import * as vscode from 'vscode';
 
-interface Task {
+export interface TaskSource {
+    uri: string;
+    line: number;
+    character: number;
+    tag: 'todo' | 'vish';
+}
+
+export interface Task {
     id: string;
     text: string;
     done: boolean;
+    priority?: 'todo' | 'vish';
+    source?: TaskSource;
 }
 
 type TaskReference = Task | TaskItem;
 
 const TASKS_KEY = 'workspace-todo.tasks';
+const TAG_PATTERN = /@(todo|vish)\b/gi;
+
+function cleanTaskText(text: string, fallback: string): string {
+    const cleaned = text.replace(/^\s*[:=\-–—]+\s*/, '').trim();
+    return cleaned || fallback.trim();
+}
+
+export function parseTaggedTasks(text: string, uri = ''): Task[] {
+    const tasks: Task[] = [];
+
+    text.split(/\r?\n/).forEach((line, lineNumber) => {
+        const matches = [...line.matchAll(TAG_PATTERN)];
+        matches.forEach((match, index) => {
+            const tag = match[1].toLowerCase() as 'todo' | 'vish';
+            const character = match.index ?? 0;
+            const nextCharacter = matches[index + 1]?.index ?? line.length;
+            const source = { uri, line: lineNumber, character, tag };
+            tasks.push({
+                id: `auto:${uri}:${lineNumber}:${character}`,
+                text: cleanTaskText(line.slice(character + match[0].length, nextCharacter), line),
+                done: false,
+                priority: tag,
+                source,
+            });
+        });
+    });
+
+    return tasks;
+}
+
+export function sortTasks(tasks: Task[]): Task[] {
+    return tasks
+        .map((task, index) => ({ task, index }))
+        .sort((a, b) => {
+            const aVish = a.task.priority === 'vish' || a.task.source?.tag === 'vish';
+            const bVish = b.task.priority === 'vish' || b.task.source?.tag === 'vish';
+            if (aVish !== bVish) {
+                return aVish ? -1 : 1;
+            }
+            if (aVish && bVish) {
+                const aSource = a.task.source;
+                const bSource = b.task.source;
+                if (aSource && bSource) {
+                    return aSource.uri.localeCompare(bSource.uri) ||
+                        aSource.line - bSource.line ||
+                        aSource.character - bSource.character;
+                }
+            }
+            return a.index - b.index;
+        })
+        .map(({ task }) => task);
+}
+
+async function scanWorkspaceTasks(): Promise<Task[]> {
+    if (!vscode.workspace.workspaceFolders?.length) {
+        return [];
+    }
+
+    const files = await vscode.workspace.findFiles(
+        '**/*',
+        '**/{node_modules,.git,dist,out,.vscode}/**',
+    );
+    files.sort((a, b) => a.fsPath.localeCompare(b.fsPath));
+
+    const tasks: Task[] = [];
+    for (const file of files) {
+        try {
+            const document = await vscode.workspace.openTextDocument(file);
+            tasks.push(...parseTaggedTasks(document.getText(), file.toString()));
+        } catch {
+            // Ignore files VS Code cannot decode as text.
+        }
+    }
+    return tasks;
+}
+
+async function synchronizeTaggedTasks(context: vscode.ExtensionContext): Promise<void> {
+    const currentTasks = context.workspaceState.get<Task[]>(TASKS_KEY, []);
+    const taggedTasks = await scanWorkspaceTasks();
+    const previousTagged = new Map(
+        currentTasks.filter(task => task.source).map(task => [`${task.source?.uri}:${task.source?.line}:${task.source?.character}`, task]),
+    );
+    const syncedTagged = taggedTasks.map(task => {
+        const previous = previousTagged.get(`${task.source?.uri}:${task.source?.line}:${task.source?.character}`);
+        return previous ? { ...task, done: previous.done, id: previous.id } : task;
+    });
+    const manualTasks = currentTasks.filter(task => !task.source);
+    await context.workspaceState.update(TASKS_KEY, [...manualTasks, ...syncedTagged]);
+}
 
 // 1. Classe que fornece os dados para a Barra Lateral
 class TaskTreeProvider implements vscode.TreeDataProvider<TaskItem> {
@@ -27,16 +125,20 @@ class TaskTreeProvider implements vscode.TreeDataProvider<TaskItem> {
     }
 
     getChildren(element?: TaskItem): Thenable<TaskItem[]> {
-        let tasks: Task[] = this.context.workspaceState.get<Task[]>(TASKS_KEY, []);
+        const tasks = sortTasks(this.context.workspaceState.get<Task[]>(TASKS_KEY, []));
         
         if (tasks.length === 0) {
-            return Promise.resolve([new TaskItem('Nenhuma tarefa pendente 🎉', '', vscode.TreeItemCollapsibleState.None)]);
+            return Promise.resolve([new TaskItem({ id: '', text: 'Nenhuma tarefa pendente 🎉', done: false }, '', vscode.TreeItemCollapsibleState.None)]);
         }
 
         // Transforma os dados em itens visuais (TaskItem)
         const items = tasks.map(t => {
-            const icon = t.done ? new vscode.ThemeIcon('pass', new vscode.ThemeColor('testing.iconPassed')) : new vscode.ThemeIcon('circle-large-outline');
-            return new TaskItem(t.text, t.id, vscode.TreeItemCollapsibleState.None, icon, t.done, {
+            const icon = t.priority === 'vish'
+                ? new vscode.ThemeIcon('star-full', new vscode.ThemeColor('charts.yellow'))
+                : t.done
+                    ? new vscode.ThemeIcon('pass', new vscode.ThemeColor('testing.iconPassed'))
+                    : new vscode.ThemeIcon('circle-large-outline');
+            return new TaskItem(t, t.id, vscode.TreeItemCollapsibleState.None, icon, t.done, {
                 command: 'workspace-todo.toggleTask',
                 title: 'Alternar Status',
                 arguments: [t] // Passa a tarefa clicada para o comando
@@ -50,16 +152,16 @@ class TaskTreeProvider implements vscode.TreeDataProvider<TaskItem> {
 // 2. Elemento visual de cada linha na barra lateral
 class TaskItem extends vscode.TreeItem {
     constructor(
-        public readonly label: string,
+        task: Task,
         public readonly id: string,
         public readonly collapsibleState: vscode.TreeItemCollapsibleState,
         public readonly iconPath?: vscode.ThemeIcon,
         public readonly done?: boolean,
         public readonly command?: vscode.Command
     ) {
-        super(label, collapsibleState);
+        super({ label: task.text, highlights: task.priority === 'vish' ? [[0, task.text.length]] : undefined }, collapsibleState);
         this.contextValue = id ? 'task' : undefined;
-        this.tooltip = `${this.label}`;
+        this.tooltip = task.source ? `${task.text} (${task.source.tag.toUpperCase()})` : task.text;
         this.description = this.done ? 'Concluída' : 'Pendente';
     }
 }
@@ -76,13 +178,16 @@ export function activate(context: vscode.ExtensionContext) {
     const selectedTask = (taskClicked?: TaskReference): TaskReference | undefined => taskClicked ??
         (selectedTaskId ? { id: selectedTaskId, text: '', done: false } : undefined);
 
-    // Recupera tarefas para a notificação de abertura
-    let tasks: Task[] = context.workspaceState.get<Task[]>(TASKS_KEY, []);
-    const pendingTasks = tasks.filter(t => !t.done);
-    
-    if (pendingTasks.length > 0) {
-
-        // Força o VS Code a abrir a barra lateral do Vish imediatamente
+    let syncPromise: Promise<void> | undefined;
+    const syncTasks = () => {
+        syncPromise ??= synchronizeTaggedTasks(context).finally(() => { syncPromise = undefined; });
+        return syncPromise;
+    };
+    const showReminder = () => {
+        const pendingTasks = context.workspaceState.get<Task[]>(TASKS_KEY, []).filter(t => !t.done);
+        if (pendingTasks.length === 0) {
+            return;
+        }
         vscode.commands.executeCommand('vish-tasks.focus');
         vscode.window.showInformationMessage(
             `Lembrete: Você tem ${pendingTasks.length} tarefa(s) pendente(s).`,
@@ -92,7 +197,21 @@ export function activate(context: vscode.ExtensionContext) {
                 vscode.commands.executeCommand('vish-tasks.focus');
             }
         });
-    }
+    };
+
+    void syncTasks().then(() => {
+        taskProvider.refresh();
+        showReminder();
+    });
+    const workspaceWatcher = vscode.workspace.createFileSystemWatcher('**/*');
+    const refreshTaggedTasks = () => { void syncTasks().then(() => taskProvider.refresh()); };
+    context.subscriptions.push(
+        vscode.workspace.onDidSaveTextDocument(refreshTaggedTasks),
+        workspaceWatcher,
+        workspaceWatcher.onDidCreate(refreshTaggedTasks),
+        workspaceWatcher.onDidDelete(refreshTaggedTasks),
+        workspaceWatcher.onDidChange(refreshTaggedTasks),
+    );
 
     // Comando: Adicionar
     const addTaskCmd = vscode.commands.registerCommand('workspace-todo.addTask', async () => {
