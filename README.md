@@ -26,6 +26,21 @@ As tarefas são armazenadas no workspace atual e ficam disponíveis novamente qu
 Marcadores encontrados no workspace aberto são sincronizados automaticamente ao salvar ou alterar arquivos. `@vish` aparece antes dos demais marcadores; a comparação não diferencia maiúsculas e minúsculas.
 Clique com o botão direito em uma tarefa para abrir as ações disponíveis. Em tarefas encontradas no código, **Exibir** navega até o marcador, **Editar** altera o texto associado e **Excluir** remove o marcador do arquivo.
 
+## Demonstração visual
+
+[Ilustração estática de uso do Vish](docs/usage.svg)
+
+Fluxo rápido:
+
+```text
+1. Escreva // @vish corrigir o fluxo no código.
+2. Abra a visão Vish! na barra lateral.
+3. Use Buscar, Filtrar por Prioridade ou Agrupar por Arquivo.
+4. Clique com o botão direito para Exibir, Editar, Concluir, Copiar ou Excluir.
+```
+
+O projeto atualmente inclui uma ilustração estática reproduzível. Um GIF de captura real será adicionado quando houver um fluxo automatizado de gravação do VS Code disponível.
+
 ## Atalhos padrão
 
 | Ação | Atalho |

@@ -1,6 +1,9 @@
 .vscode/**
 .vscode-test/**
 .env
+.agents/**
+.specify/**
+specs/**
 out/**
 node_modules/**
 src/**

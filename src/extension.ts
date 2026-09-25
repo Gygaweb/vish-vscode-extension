@@ -13,6 +13,22 @@ export interface Task {
     done: boolean;
     priority?: 'todo' | 'vish';
     source?: TaskSource;
+    stale?: boolean;
+}
+
+export type TaskPriorityFilter = 'all' | 'todo' | 'vish';
+export type TaskStatusFilter = 'all' | 'pending' | 'completed' | 'stale';
+
+export interface TaskViewState {
+    query: string;
+    priority: TaskPriorityFilter;
+    status: TaskStatusFilter;
+    groupByFile: boolean;
+}
+
+export interface TaskGroup {
+    key: string;
+    tasks: Task[];
 }
 
 type TaskReference = Task | TaskItem;
@@ -71,6 +87,48 @@ export function sortTasks(tasks: Task[]): Task[] {
         .map(({ task }) => task);
 }
 
+export function filterTasks(tasks: Task[], view: TaskViewState): Task[] {
+    const query = view.query.trim().toLocaleLowerCase();
+    return sortTasks(tasks).filter(task => {
+        const matchesQuery = !query || task.text.toLocaleLowerCase().includes(query);
+        const matchesPriority = view.priority === 'all' || task.priority === view.priority;
+        const matchesStatus = view.status === 'all' ||
+            (view.status === 'stale' && task.stale) ||
+            (view.status === 'completed' && task.done && !task.stale) ||
+            (view.status === 'pending' && !task.done && !task.stale);
+        return matchesQuery && matchesPriority && matchesStatus;
+    });
+}
+
+export function groupTasks(tasks: Task[]): TaskGroup[] {
+    const groups = new Map<string, Task[]>();
+    for (const task of sortTasks(tasks)) {
+        const key = task.source?.uri ?? 'manual';
+        groups.set(key, [...(groups.get(key) ?? []), task]);
+    }
+    return [...groups].map(([key, groupedTasks]) => ({ key, tasks: groupedTasks }));
+}
+
+function sourceKey(source?: TaskSource): string | undefined {
+    return source && `${source.uri}:${source.line}:${source.character}`;
+}
+
+export function reconcileTaggedTasks(previousTasks: Task[], discoveredTasks: Task[]): Task[] {
+    const previousBySource = new Map(
+        previousTasks.filter(task => task.source).map(task => [sourceKey(task.source), task]),
+    );
+    const discoveredKeys = new Set(discoveredTasks.map(task => sourceKey(task.source)));
+    const currentTasks = discoveredTasks.map(task => {
+        const previous = previousBySource.get(sourceKey(task.source));
+        return previous ? { ...task, id: previous.id, done: previous.done, stale: false } : task;
+    });
+    const manualTasks = previousTasks.filter(task => !task.source);
+    const staleTasks = previousTasks
+        .filter(task => task.source && !discoveredKeys.has(sourceKey(task.source)))
+        .map(task => ({ ...task, stale: true }));
+    return [...manualTasks, ...currentTasks, ...staleTasks];
+}
+
 async function scanWorkspaceTasks(): Promise<Task[]> {
     if (!vscode.workspace.workspaceFolders?.length) {
         return [];
@@ -97,15 +155,7 @@ async function scanWorkspaceTasks(): Promise<Task[]> {
 async function synchronizeTaggedTasks(context: vscode.ExtensionContext): Promise<void> {
     const currentTasks = context.workspaceState.get<Task[]>(TASKS_KEY, []);
     const taggedTasks = await scanWorkspaceTasks();
-    const previousTagged = new Map(
-        currentTasks.filter(task => task.source).map(task => [`${task.source?.uri}:${task.source?.line}:${task.source?.character}`, task]),
-    );
-    const syncedTagged = taggedTasks.map(task => {
-        const previous = previousTagged.get(`${task.source?.uri}:${task.source?.line}:${task.source?.character}`);
-        return previous ? { ...task, done: previous.done, id: previous.id } : task;
-    });
-    const manualTasks = currentTasks.filter(task => !task.source);
-    await context.workspaceState.update(TASKS_KEY, [...manualTasks, ...syncedTagged]);
+    await context.workspaceState.update(TASKS_KEY, reconcileTaggedTasks(currentTasks, taggedTasks));
 }
 
 function getSourceRange(document: vscode.TextDocument, source: TaskSource, includeMarker: boolean): vscode.Range | undefined {
@@ -160,10 +210,13 @@ async function removeSourceTask(task: Task): Promise<boolean> {
     return vscode.workspace.applyEdit(edit);
 }
 
+type TreeElement = TaskItem | TaskGroupItem;
+
 // 1. Classe que fornece os dados para a Barra Lateral
-class TaskTreeProvider implements vscode.TreeDataProvider<TaskItem> {
-    private _onDidChangeTreeData: vscode.EventEmitter<TaskItem | undefined | void> = new vscode.EventEmitter<TaskItem | undefined | void>();
-    readonly onDidChangeTreeData: vscode.Event<TaskItem | undefined | void> = this._onDidChangeTreeData.event;
+class TaskTreeProvider implements vscode.TreeDataProvider<TreeElement> {
+    private _onDidChangeTreeData: vscode.EventEmitter<TreeElement | undefined | void> = new vscode.EventEmitter<TreeElement | undefined | void>();
+    readonly onDidChangeTreeData: vscode.Event<TreeElement | undefined | void> = this._onDidChangeTreeData.event;
+    private viewState: TaskViewState = { query: '', priority: 'all', status: 'all', groupByFile: false };
 
     constructor(private context: vscode.ExtensionContext) {}
 
@@ -172,32 +225,58 @@ class TaskTreeProvider implements vscode.TreeDataProvider<TaskItem> {
         this._onDidChangeTreeData.fire();
     }
 
-    getTreeItem(element: TaskItem): vscode.TreeItem {
+    getTreeItem(element: TreeElement): vscode.TreeItem {
         return element;
     }
 
-    getChildren(element?: TaskItem): Thenable<TaskItem[]> {
-        const tasks = sortTasks(this.context.workspaceState.get<Task[]>(TASKS_KEY, []));
-        
-        if (tasks.length === 0) {
-            return Promise.resolve([new TaskItem({ id: '', text: 'Nenhuma tarefa pendente 🎉', done: false }, '', vscode.TreeItemCollapsibleState.None)]);
+    setViewState(changes: Partial<TaskViewState>): void {
+        this.viewState = { ...this.viewState, ...changes };
+        this.refresh();
+    }
+
+    getViewState(): TaskViewState {
+        return this.viewState;
+    }
+
+    getChildren(element?: TreeElement): Thenable<TreeElement[]> {
+        if (element instanceof TaskGroupItem) {
+            return Promise.resolve(element.tasks.map(task => this.createTaskItem(task)));
         }
 
-        // Transforma os dados em itens visuais (TaskItem)
-        const items = tasks.map(t => {
-            const icon = t.priority === 'vish'
+        const allTasks = this.context.workspaceState.get<Task[]>(TASKS_KEY, []);
+        const tasks = filterTasks(allTasks, this.viewState);
+        if (tasks.length === 0) {
+            const emptyText = allTasks.length > 0 ? 'Nenhuma tarefa corresponde aos filtros 🔎' : 'Nenhuma tarefa pendente 🎉';
+            return Promise.resolve([new TaskItem({ id: '', text: emptyText, done: false }, '', vscode.TreeItemCollapsibleState.None)]);
+        }
+
+        return Promise.resolve(this.viewState.groupByFile
+            ? groupTasks(tasks).map(group => new TaskGroupItem(group.key, group.tasks))
+            : tasks.map(task => this.createTaskItem(task)));
+    }
+
+    private createTaskItem(task: Task): TaskItem {
+        const icon = task.stale
+            ? new vscode.ThemeIcon('warning', new vscode.ThemeColor('list.warningForeground'))
+            : task.priority === 'vish'
                 ? new vscode.ThemeIcon('star-full', new vscode.ThemeColor('charts.yellow'))
-                : t.done
+                : task.done
                     ? new vscode.ThemeIcon('pass', new vscode.ThemeColor('testing.iconPassed'))
                     : new vscode.ThemeIcon('circle-large-outline');
-            return new TaskItem(t, t.id, vscode.TreeItemCollapsibleState.None, icon, t.done, {
-                command: 'workspace-todo.toggleTask',
-                title: 'Alternar Status',
-                arguments: [t] // Passa a tarefa clicada para o comando
-            });
+        return new TaskItem(task, task.id, vscode.TreeItemCollapsibleState.None, icon, task.done, {
+            command: 'workspace-todo.toggleTask',
+            title: 'Alternar Status',
+            arguments: [task]
         });
+    }
+}
 
-        return Promise.resolve(items);
+class TaskGroupItem extends vscode.TreeItem {
+    constructor(public readonly key: string, public readonly tasks: Task[]) {
+        const label = key === 'manual' ? 'Tarefas manuais' : vscode.workspace.asRelativePath(vscode.Uri.parse(key), false);
+        super(label, vscode.TreeItemCollapsibleState.Expanded);
+        this.contextValue = 'taskGroup';
+        this.description = `${tasks.length} tarefa(s)`;
     }
 }
 
@@ -212,9 +291,9 @@ class TaskItem extends vscode.TreeItem {
         public readonly command?: vscode.Command
     ) {
         super({ label: task.text, highlights: task.priority === 'vish' ? [[0, task.text.length]] : undefined }, collapsibleState);
-        this.contextValue = id ? (done ? 'taskDone' : 'task') : undefined;
+        this.contextValue = id ? (task.stale ? 'taskStale' : done ? 'taskDone' : 'task') : undefined;
         this.tooltip = task.source ? `${task.text} (${task.source.tag.toUpperCase()})` : task.text;
-        this.description = this.done ? 'Concluída' : 'Pendente';
+        this.description = task.stale ? 'Obsoleta' : this.done ? 'Concluída' : 'Pendente';
     }
 }
 
@@ -233,6 +312,47 @@ export function activate(context: vscode.ExtensionContext) {
         const reference = selectedTask(taskClicked);
         return context.workspaceState.get<Task[]>(TASKS_KEY, []).find(task => task.id === reference?.id);
     };
+
+    const searchCmd = vscode.commands.registerCommand('workspace-todo.search', async () => {
+        const query = await vscode.window.showInputBox({
+            prompt: 'Buscar tarefas',
+            value: taskProvider.getViewState().query,
+        });
+        if (query !== undefined) {
+            taskProvider.setViewState({ query });
+        }
+    });
+
+    const filterPriorityCmd = vscode.commands.registerCommand('workspace-todo.filterPriority', async () => {
+        const choice = await vscode.window.showQuickPick([
+            { label: 'Todas as prioridades', value: 'all' as TaskPriorityFilter },
+            { label: '@vish', value: 'vish' as TaskPriorityFilter },
+            { label: '@todo', value: 'todo' as TaskPriorityFilter },
+        ], { placeHolder: 'Filtrar por prioridade' });
+        if (choice) {
+            taskProvider.setViewState({ priority: choice.value });
+        }
+    });
+
+    const filterStatusCmd = vscode.commands.registerCommand('workspace-todo.filterStatus', async () => {
+        const choice = await vscode.window.showQuickPick([
+            { label: 'Todos os status', value: 'all' as TaskStatusFilter },
+            { label: 'Pendentes', value: 'pending' as TaskStatusFilter },
+            { label: 'Concluídas', value: 'completed' as TaskStatusFilter },
+            { label: 'Obsoletas', value: 'stale' as TaskStatusFilter },
+        ], { placeHolder: 'Filtrar por status' });
+        if (choice) {
+            taskProvider.setViewState({ status: choice.value });
+        }
+    });
+
+    const toggleGroupingCmd = vscode.commands.registerCommand('workspace-todo.toggleGrouping', () => {
+        taskProvider.setViewState({ groupByFile: !taskProvider.getViewState().groupByFile });
+    });
+
+    const clearViewCmd = vscode.commands.registerCommand('workspace-todo.clearView', () => {
+        taskProvider.setViewState({ query: '', priority: 'all', status: 'all', groupByFile: false });
+    });
 
     let syncPromise: Promise<void> | undefined;
     const syncTasks = () => {
@@ -375,7 +495,9 @@ export function activate(context: vscode.ExtensionContext) {
             'Excluir'
         );
         if (confirmation === 'Excluir') {
-            if (task.source) {
+            if (task.stale) {
+                await context.workspaceState.update(TASKS_KEY, currentTasks.filter(current => current.id !== task.id));
+            } else if (task.source) {
                 await removeSourceTask(task);
                 await syncTasks();
             } else {
@@ -398,9 +520,20 @@ export function activate(context: vscode.ExtensionContext) {
         taskProvider.refresh();
     });
 
+    const clearStaleCmd = vscode.commands.registerCommand('workspace-todo.clearStale', async () => {
+        const currentTasks = context.workspaceState.get<Task[]>(TASKS_KEY, []);
+        await context.workspaceState.update(TASKS_KEY, currentTasks.filter(task => !task.stale));
+        taskProvider.refresh();
+    });
+
     context.subscriptions.push(
         addTaskCmd,
         toggleTaskCmd,
+        searchCmd,
+        filterPriorityCmd,
+        filterStatusCmd,
+        toggleGroupingCmd,
+        clearViewCmd,
         editTaskCmd,
         showTaskCmd,
         completeTaskCmd,
@@ -408,6 +541,7 @@ export function activate(context: vscode.ExtensionContext) {
         deleteTaskCmd,
         clearDoneCmd,
         refreshCmd,
+        clearStaleCmd,
     );
 }
 

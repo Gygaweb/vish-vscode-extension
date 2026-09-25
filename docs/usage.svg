@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="520" viewBox="0 0 920 520" role="img" aria-labelledby="title desc">
+  <title id="title">Vish task panel usage example</title>
+  <desc id="desc">A code editor with Vish tasks, a prioritized Vish task, and context actions.</desc>
+  <rect width="920" height="520" fill="#1e1e1e"/>
+  <rect x="0" y="0" width="620" height="520" fill="#252526"/>
+  <rect x="620" y="0" width="300" height="520" fill="#181818"/>
+  <text x="24" y="38" fill="#d4d4d4" font-family="sans-serif" font-size="18">src/extension.ts</text>
+  <line x1="24" y1="58" x2="596" y2="58" stroke="#3b3b3b"/>
+  <g font-family="monospace" font-size="16">
+    <text x="28" y="100" fill="#858585">42</text><text x="70" y="100" fill="#c586c0">const</text><text x="130" y="100" fill="#9cdcfe">task</text><text x="180" y="100" fill="#d4d4d4">= loadTask();</text>
+    <rect x="58" y="122" width="540" height="32" fill="#3a3120"/>
+    <text x="28" y="145" fill="#858585">43</text><text x="70" y="145" fill="#6a9955">// @vish corrigir o fluxo principal</text>
+    <text x="28" y="190" fill="#858585">44</text><text x="70" y="190" fill="#6a9955">// @todo documentar a decisão</text>
+  </g>
+  <text x="644" y="38" fill="#f0f0f0" font-family="sans-serif" font-weight="bold" font-size="20">Vish!</text>
+  <text x="644" y="68" fill="#9cdcfe" font-family="sans-serif" font-size="14">Buscar · Filtrar · Agrupar</text>
+  <line x1="640" y1="84" x2="900" y2="84" stroke="#3b3b3b"/>
+  <g font-family="sans-serif" font-size="15">
+    <text x="648" y="120" fill="#ffd700">★</text><text x="674" y="120" fill="#ffd700" font-weight="bold">corrigir o fluxo principal</text>
+    <text x="674" y="143" fill="#999">Pendente · @vish</text>
+    <text x="648" y="180" fill="#c5c5c5">○</text><text x="674" y="180" fill="#d4d4d4">documentar a decisão</text>
+    <text x="674" y="203" fill="#999">Pendente · @todo</text>
+  </g>
+  <rect x="594" y="230" width="300" height="180" rx="4" fill="#2d2d30" stroke="#555"/>
+  <g fill="#e6e6e6" font-family="sans-serif" font-size="15">
+    <text x="616" y="263">Exibir linha do código</text>
+    <text x="616" y="296">Editar</text>
+    <text x="616" y="329">Concluir</text>
+    <text x="616" y="362">Copiar</text>
+    <text x="616" y="395">Excluir</text>
+  </g>
+</svg>

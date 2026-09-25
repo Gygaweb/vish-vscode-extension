@@ -2,7 +2,7 @@
   "name": "vish",
   "displayName": "Vish",
   "description": "Deixou o código pela metade? O Vish te lembra o que você precisa terminar.",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "publisher": "gygaweb","license": "MIT",
   "repository": {
     "type": "git",
@@ -46,6 +46,27 @@
         "title": "Alternar Status"
       },
       {
+        "command": "workspace-todo.search",
+        "title": "Buscar Tarefas",
+        "icon": "$(search)"
+      },
+      {
+        "command": "workspace-todo.filterPriority",
+        "title": "Filtrar por Prioridade"
+      },
+      {
+        "command": "workspace-todo.filterStatus",
+        "title": "Filtrar por Status"
+      },
+      {
+        "command": "workspace-todo.toggleGrouping",
+        "title": "Agrupar por Arquivo"
+      },
+      {
+        "command": "workspace-todo.clearView",
+        "title": "Limpar Busca e Filtros"
+      },
+      {
         "command": "workspace-todo.editTask",
         "title": "Editar"
       },
@@ -75,6 +96,10 @@
         "command": "workspace-todo.refresh",
         "title": "Atualizar Lista",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "workspace-todo.clearStale",
+        "title": "Limpar Obsoletas"
       }
     ],
     "keybindings": [
@@ -111,6 +136,36 @@
     "menus": {
       "view/title": [
         {
+          "command": "workspace-todo.search",
+          "when": "view == vish-tasks",
+          "group": "navigation"
+        },
+        {
+          "command": "workspace-todo.filterPriority",
+          "when": "view == vish-tasks",
+          "group": "navigation"
+        },
+        {
+          "command": "workspace-todo.filterStatus",
+          "when": "view == vish-tasks",
+          "group": "navigation"
+        },
+        {
+          "command": "workspace-todo.toggleGrouping",
+          "when": "view == vish-tasks",
+          "group": "navigation"
+        },
+        {
+          "command": "workspace-todo.clearView",
+          "when": "view == vish-tasks",
+          "group": "navigation"
+        },
+        {
+          "command": "workspace-todo.clearStale",
+          "when": "view == vish-tasks",
+          "group": "navigation"
+        },
+        {
           "command": "workspace-todo.addTask",
           "when": "view == vish-tasks",
           "group": "navigation"
@@ -139,12 +194,12 @@
         },
         {
           "command": "workspace-todo.copyTask",
-          "when": "view == vish-tasks && (viewItem == task || viewItem == taskDone)",
+          "when": "view == vish-tasks && (viewItem == task || viewItem == taskDone || viewItem == taskStale)",
           "group": "task"
         },
         {
           "command": "workspace-todo.deleteTask",
-          "when": "view == vish-tasks && (viewItem == task || viewItem == taskDone)",
+          "when": "view == vish-tasks && (viewItem == task || viewItem == taskDone || viewItem == taskStale)",
           "group": "task"
         }
       ]
