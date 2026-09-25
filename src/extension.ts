@@ -18,7 +18,7 @@ export interface Task {
 type TaskReference = Task | TaskItem;
 
 const TASKS_KEY = 'workspace-todo.tasks';
-const TAG_PATTERN = /@(todo|vish)\b/gi;
+const TAG_PATTERN = /(?<![\p{L}\p{N}_])@(todo|vish)(?![\p{L}\p{N}_])/giu;
 
 function cleanTaskText(text: string, fallback: string): string {
     const cleaned = text.replace(/^\s*[:=\-–—]+\s*/, '').trim();
@@ -31,7 +31,7 @@ export function parseTaggedTasks(text: string, uri = ''): Task[] {
     text.split(/\r?\n/).forEach((line, lineNumber) => {
         const matches = [...line.matchAll(TAG_PATTERN)];
         matches.forEach((match, index) => {
-            const tag = match[1].toLowerCase() as 'todo' | 'vish';
+            const tag = match[0].slice(1).toLowerCase() as 'todo' | 'vish';
             const character = match.index ?? 0;
             const nextCharacter = matches[index + 1]?.index ?? line.length;
             const source = { uri, line: lineNumber, character, tag };

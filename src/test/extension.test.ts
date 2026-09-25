@@ -30,4 +30,17 @@ suite('Extension Test Suite', () => {
 		assert.strictEqual(sorted[0].priority, 'vish');
 		assert.strictEqual(sorted[1].source?.line, 2);
 	});
+
+	test('only maps standalone markers, not words containing them', () => {
+		const tasks = parseTaggedTasks([
+			'// @TODO tarefa válida',
+			'// @VISH tarefa prioritária',
+			'const contact = "email@todo.com";',
+			'const value = "@vishful";',
+			'const plain = "TODO sem arroba";',
+		].join('\n'));
+
+		assert.deepStrictEqual(tasks.map(task => task.text), ['tarefa válida', 'tarefa prioritária']);
+		assert.deepStrictEqual(tasks.map(task => task.priority), ['todo', 'vish']);
+	});
 });
