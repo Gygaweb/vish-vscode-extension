@@ -108,6 +108,58 @@ async function synchronizeTaggedTasks(context: vscode.ExtensionContext): Promise
     await context.workspaceState.update(TASKS_KEY, [...manualTasks, ...syncedTagged]);
 }
 
+function getSourceRange(document: vscode.TextDocument, source: TaskSource, includeMarker: boolean): vscode.Range | undefined {
+    if (source.line >= document.lineCount) {
+        return undefined;
+    }
+
+    const line = document.lineAt(source.line).text;
+    const matches = [...line.matchAll(TAG_PATTERN)];
+    const matchIndex = matches.findIndex(match => match.index === source.character);
+    const match = matches[matchIndex];
+    if (!match || match.index === undefined) {
+        return undefined;
+    }
+
+    const end = matches[matchIndex + 1]?.index ?? line.length;
+    const start = includeMarker ? match.index : match.index + match[0].length;
+    return new vscode.Range(source.line, start, source.line, end);
+}
+
+async function updateSourceTask(task: Task, text: string): Promise<boolean> {
+    if (!task.source) {
+        return false;
+    }
+
+    const uri = vscode.Uri.parse(task.source.uri);
+    const document = await vscode.workspace.openTextDocument(uri);
+    const range = getSourceRange(document, task.source, false);
+    if (!range) {
+        return false;
+    }
+
+    const edit = new vscode.WorkspaceEdit();
+    edit.replace(uri, range, ` ${text}`);
+    return vscode.workspace.applyEdit(edit);
+}
+
+async function removeSourceTask(task: Task): Promise<boolean> {
+    if (!task.source) {
+        return false;
+    }
+
+    const uri = vscode.Uri.parse(task.source.uri);
+    const document = await vscode.workspace.openTextDocument(uri);
+    const range = getSourceRange(document, task.source, true);
+    if (!range) {
+        return false;
+    }
+
+    const edit = new vscode.WorkspaceEdit();
+    edit.delete(uri, range);
+    return vscode.workspace.applyEdit(edit);
+}
+
 // 1. Classe que fornece os dados para a Barra Lateral
 class TaskTreeProvider implements vscode.TreeDataProvider<TaskItem> {
     private _onDidChangeTreeData: vscode.EventEmitter<TaskItem | undefined | void> = new vscode.EventEmitter<TaskItem | undefined | void>();
@@ -160,7 +212,7 @@ class TaskItem extends vscode.TreeItem {
         public readonly command?: vscode.Command
     ) {
         super({ label: task.text, highlights: task.priority === 'vish' ? [[0, task.text.length]] : undefined }, collapsibleState);
-        this.contextValue = id ? 'task' : undefined;
+        this.contextValue = id ? (done ? 'taskDone' : 'task') : undefined;
         this.tooltip = task.source ? `${task.text} (${task.source.tag.toUpperCase()})` : task.text;
         this.description = this.done ? 'Concluída' : 'Pendente';
     }
@@ -177,6 +229,10 @@ export function activate(context: vscode.ExtensionContext) {
 
     const selectedTask = (taskClicked?: TaskReference): TaskReference | undefined => taskClicked ??
         (selectedTaskId ? { id: selectedTaskId, text: '', done: false } : undefined);
+    const storedTask = (taskClicked?: TaskReference): Task | undefined => {
+        const reference = selectedTask(taskClicked);
+        return context.workspaceState.get<Task[]>(TASKS_KEY, []).find(task => task.id === reference?.id);
+    };
 
     let syncPromise: Promise<void> | undefined;
     const syncTasks = () => {
@@ -226,7 +282,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Comando: Alternar status ao clicar no item da barra lateral
     const toggleTaskCmd = vscode.commands.registerCommand('workspace-todo.toggleTask', async (taskClicked?: TaskReference) => {
-        const task = selectedTask(taskClicked);
+        const task = storedTask(taskClicked);
         if (!task) {
             return;
         }
@@ -244,9 +300,62 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
+    const editTaskCmd = vscode.commands.registerCommand('workspace-todo.editTask', async (taskClicked?: TaskReference) => {
+        const task = storedTask(taskClicked);
+        if (!task) {
+            return;
+        }
+
+        const text = await vscode.window.showInputBox({ prompt: 'Editar tarefa', value: task.text });
+        if (text === undefined || !text.trim()) {
+            return;
+        }
+
+        if (task.source) {
+            await updateSourceTask(task, text.trim());
+            await syncTasks();
+        } else {
+            const currentTasks = context.workspaceState.get<Task[]>(TASKS_KEY, []);
+            await context.workspaceState.update(TASKS_KEY, currentTasks.map(current =>
+                current.id === task.id ? { ...current, text: text.trim() } : current,
+            ));
+        }
+        taskProvider.refresh();
+    });
+
+    const showTaskCmd = vscode.commands.registerCommand('workspace-todo.showTask', async (taskClicked?: TaskReference) => {
+        const task = storedTask(taskClicked);
+        if (!task?.source) {
+            vscode.window.showInformationMessage('Esta tarefa não possui uma linha de código associada.');
+            return;
+        }
+
+        const uri = vscode.Uri.parse(task.source.uri);
+        const document = await vscode.workspace.openTextDocument(uri);
+        const range = getSourceRange(document, task.source, true);
+        if (!range) {
+            vscode.window.showWarningMessage('A marcação desta tarefa não foi encontrada no arquivo.');
+            return;
+        }
+        await vscode.window.showTextDocument(document, { selection: range, preview: false });
+    });
+
+    const completeTaskCmd = vscode.commands.registerCommand('workspace-todo.completeTask', async (taskClicked?: TaskReference) => {
+        const task = storedTask(taskClicked);
+        if (!task || task.done) {
+            return;
+        }
+
+        const currentTasks = context.workspaceState.get<Task[]>(TASKS_KEY, []);
+        await context.workspaceState.update(TASKS_KEY, currentTasks.map(current =>
+            current.id === task.id ? { ...current, done: true } : current,
+        ));
+        taskProvider.refresh();
+        process.stdout.write('\u0007');
+    });
+
     const copyTaskCmd = vscode.commands.registerCommand('workspace-todo.copyTask', async (taskClicked?: TaskReference) => {
-        const reference = selectedTask(taskClicked);
-        const task = context.workspaceState.get<Task[]>(TASKS_KEY, []).find(t => t.id === reference?.id);
+        const task = storedTask(taskClicked);
         if (task) {
             await vscode.env.clipboard.writeText(task.text);
             vscode.window.showInformationMessage('Tarefa copiada para o clipboard.');
@@ -255,8 +364,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     const deleteTaskCmd = vscode.commands.registerCommand('workspace-todo.deleteTask', async (taskClicked?: TaskReference) => {
         const currentTasks = context.workspaceState.get<Task[]>(TASKS_KEY, []);
-        const reference = selectedTask(taskClicked);
-        const task = currentTasks.find(t => t.id === reference?.id);
+        const task = storedTask(taskClicked);
         if (!task) {
             return;
         }
@@ -267,7 +375,12 @@ export function activate(context: vscode.ExtensionContext) {
             'Excluir'
         );
         if (confirmation === 'Excluir') {
-            await context.workspaceState.update(TASKS_KEY, currentTasks.filter(t => t.id !== task.id));
+            if (task.source) {
+                await removeSourceTask(task);
+                await syncTasks();
+            } else {
+                await context.workspaceState.update(TASKS_KEY, currentTasks.filter(t => t.id !== task.id));
+            }
             taskProvider.refresh();
         }
     });
@@ -285,7 +398,17 @@ export function activate(context: vscode.ExtensionContext) {
         taskProvider.refresh();
     });
 
-    context.subscriptions.push(addTaskCmd, toggleTaskCmd, copyTaskCmd, deleteTaskCmd, clearDoneCmd, refreshCmd);
+    context.subscriptions.push(
+        addTaskCmd,
+        toggleTaskCmd,
+        editTaskCmd,
+        showTaskCmd,
+        completeTaskCmd,
+        copyTaskCmd,
+        deleteTaskCmd,
+        clearDoneCmd,
+        refreshCmd,
+    );
 }
 
 export function deactivate() {}

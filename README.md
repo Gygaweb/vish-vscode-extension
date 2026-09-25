@@ -13,6 +13,7 @@ O Vish é uma extensão do Visual Studio Code para registrar, acompanhar e concl
 - Limpeza das tarefas concluídas e atualização manual da lista.
 - Detecção automática de `@todo` e `@vish` em todos os arquivos do workspace.
 - Priorização cronológica de `@vish`, com destaque amarelo e negrito.
+- Menu de contexto nas tarefas para editar, exibir a linha do código, excluir, concluir e copiar.
 
 ## Como usar
 
@@ -23,6 +24,7 @@ O Vish é uma extensão do Visual Studio Code para registrar, acompanhar e concl
 
 As tarefas são armazenadas no workspace atual e ficam disponíveis novamente quando o projeto for reaberto.
 Marcadores encontrados no workspace aberto são sincronizados automaticamente ao salvar ou alterar arquivos. `@vish` aparece antes dos demais marcadores; a comparação não diferencia maiúsculas e minúsculas.
+Clique com o botão direito em uma tarefa para abrir as ações disponíveis. Em tarefas encontradas no código, **Exibir** navega até o marcador, **Editar** altera o texto associado e **Excluir** remove o marcador do arquivo.
 
 ## Atalhos padrão
 

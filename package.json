@@ -2,7 +2,7 @@
   "name": "vish",
   "displayName": "Vish",
   "description": "Deixou o código pela metade? O Vish te lembra o que você precisa terminar.",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "publisher": "gygaweb","license": "MIT",
   "repository": {
     "type": "git",
@@ -44,6 +44,18 @@
       {
         "command": "workspace-todo.toggleTask",
         "title": "Alternar Status"
+      },
+      {
+        "command": "workspace-todo.editTask",
+        "title": "Editar"
+      },
+      {
+        "command": "workspace-todo.showTask",
+        "title": "Exibir"
+      },
+      {
+        "command": "workspace-todo.completeTask",
+        "title": "Concluir"
       },
       {
         "command": "workspace-todo.copyTask",
@@ -111,14 +123,29 @@
       ],
       "view/item/context": [
         {
-          "command": "workspace-todo.copyTask",
+          "command": "workspace-todo.editTask",
+          "when": "view == vish-tasks && (viewItem == task || viewItem == taskDone)",
+          "group": "task"
+        },
+        {
+          "command": "workspace-todo.showTask",
+          "when": "view == vish-tasks && (viewItem == task || viewItem == taskDone)",
+          "group": "task"
+        },
+        {
+          "command": "workspace-todo.completeTask",
           "when": "view == vish-tasks && viewItem == task",
-          "group": "inline"
+          "group": "task"
+        },
+        {
+          "command": "workspace-todo.copyTask",
+          "when": "view == vish-tasks && (viewItem == task || viewItem == taskDone)",
+          "group": "task"
         },
         {
           "command": "workspace-todo.deleteTask",
-          "when": "view == vish-tasks && viewItem == task",
-          "group": "inline"
+          "when": "view == vish-tasks && (viewItem == task || viewItem == taskDone)",
+          "group": "task"
         }
       ]
     }
