@@ -246,7 +246,9 @@ class TaskTreeProvider implements vscode.TreeDataProvider<TreeElement> {
         const allTasks = this.context.workspaceState.get<Task[]>(TASKS_KEY, []);
         const tasks = filterTasks(allTasks, this.viewState);
         if (tasks.length === 0) {
-            const emptyText = allTasks.length > 0 ? 'Nenhuma tarefa corresponde aos filtros 🔎' : 'Nenhuma tarefa pendente 🎉';
+            const emptyText = allTasks.length > 0
+                ? vscode.l10n.t('No tasks match the filters 🔎')
+                : vscode.l10n.t('No pending tasks 🎉');
             return Promise.resolve([new TaskItem({ id: '', text: emptyText, done: false }, '', vscode.TreeItemCollapsibleState.None)]);
         }
 
@@ -265,7 +267,7 @@ class TaskTreeProvider implements vscode.TreeDataProvider<TreeElement> {
                     : new vscode.ThemeIcon('circle-large-outline');
         return new TaskItem(task, task.id, vscode.TreeItemCollapsibleState.None, icon, task.done, {
             command: 'workspace-todo.toggleTask',
-            title: 'Alternar Status',
+            title: vscode.l10n.t('Toggle Status'),
             arguments: [task]
         });
     }
@@ -273,10 +275,10 @@ class TaskTreeProvider implements vscode.TreeDataProvider<TreeElement> {
 
 class TaskGroupItem extends vscode.TreeItem {
     constructor(public readonly key: string, public readonly tasks: Task[]) {
-        const label = key === 'manual' ? 'Tarefas manuais' : vscode.workspace.asRelativePath(vscode.Uri.parse(key), false);
+        const label = key === 'manual' ? vscode.l10n.t('Manual tasks') : vscode.workspace.asRelativePath(vscode.Uri.parse(key), false);
         super(label, vscode.TreeItemCollapsibleState.Expanded);
         this.contextValue = 'taskGroup';
-        this.description = `${tasks.length} tarefa(s)`;
+        this.description = vscode.l10n.t('{0} task(s)', tasks.length);
     }
 }
 
@@ -293,7 +295,11 @@ class TaskItem extends vscode.TreeItem {
         super({ label: task.text, highlights: task.priority === 'vish' ? [[0, task.text.length]] : undefined }, collapsibleState);
         this.contextValue = id ? (task.stale ? 'taskStale' : done ? 'taskDone' : 'task') : undefined;
         this.tooltip = task.source ? `${task.text} (${task.source.tag.toUpperCase()})` : task.text;
-        this.description = task.stale ? 'Obsoleta' : this.done ? 'Concluída' : 'Pendente';
+        this.description = task.stale
+            ? vscode.l10n.t('Stale')
+            : this.done
+                ? vscode.l10n.t('Completed')
+                : vscode.l10n.t('Pending');
     }
 }
 
@@ -315,7 +321,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     const searchCmd = vscode.commands.registerCommand('workspace-todo.search', async () => {
         const query = await vscode.window.showInputBox({
-            prompt: 'Buscar tarefas',
+            prompt: vscode.l10n.t('Search tasks'),
             value: taskProvider.getViewState().query,
         });
         if (query !== undefined) {
@@ -325,10 +331,10 @@ export function activate(context: vscode.ExtensionContext) {
 
     const filterPriorityCmd = vscode.commands.registerCommand('workspace-todo.filterPriority', async () => {
         const choice = await vscode.window.showQuickPick([
-            { label: 'Todas as prioridades', value: 'all' as TaskPriorityFilter },
+            { label: vscode.l10n.t('All priorities'), value: 'all' as TaskPriorityFilter },
             { label: '@vish', value: 'vish' as TaskPriorityFilter },
             { label: '@todo', value: 'todo' as TaskPriorityFilter },
-        ], { placeHolder: 'Filtrar por prioridade' });
+        ], { placeHolder: vscode.l10n.t('Filter by priority') });
         if (choice) {
             taskProvider.setViewState({ priority: choice.value });
         }
@@ -336,11 +342,11 @@ export function activate(context: vscode.ExtensionContext) {
 
     const filterStatusCmd = vscode.commands.registerCommand('workspace-todo.filterStatus', async () => {
         const choice = await vscode.window.showQuickPick([
-            { label: 'Todos os status', value: 'all' as TaskStatusFilter },
-            { label: 'Pendentes', value: 'pending' as TaskStatusFilter },
-            { label: 'Concluídas', value: 'completed' as TaskStatusFilter },
-            { label: 'Obsoletas', value: 'stale' as TaskStatusFilter },
-        ], { placeHolder: 'Filtrar por status' });
+            { label: vscode.l10n.t('All statuses'), value: 'all' as TaskStatusFilter },
+            { label: vscode.l10n.t('Pending'), value: 'pending' as TaskStatusFilter },
+            { label: vscode.l10n.t('Completed'), value: 'completed' as TaskStatusFilter },
+            { label: vscode.l10n.t('Stale'), value: 'stale' as TaskStatusFilter },
+        ], { placeHolder: vscode.l10n.t('Filter by status') });
         if (choice) {
             taskProvider.setViewState({ status: choice.value });
         }
@@ -364,12 +370,13 @@ export function activate(context: vscode.ExtensionContext) {
         if (pendingTasks.length === 0) {
             return;
         }
+        const openVish = vscode.l10n.t('Open Vish');
         vscode.commands.executeCommand('vish-tasks.focus');
         vscode.window.showInformationMessage(
-            `Lembrete: Você tem ${pendingTasks.length} tarefa(s) pendente(s).`,
-            'Abrir Vish'
+            vscode.l10n.t('Reminder: You have {0} pending task(s).', pendingTasks.length),
+            openVish
         ).then(selection => {
-            if (selection === 'Abrir Vish') {
+            if (selection === openVish) {
                 vscode.commands.executeCommand('vish-tasks.focus');
             }
         });
@@ -391,7 +398,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Comando: Adicionar
     const addTaskCmd = vscode.commands.registerCommand('workspace-todo.addTask', async () => {
-        const taskText = await vscode.window.showInputBox({ prompt: 'Digite a nova tarefa' });
+        const taskText = await vscode.window.showInputBox({ prompt: vscode.l10n.t('Enter the new task') });
         if (taskText) {
             let currentTasks = context.workspaceState.get<Task[]>(TASKS_KEY, []);
             currentTasks.push({ id: Date.now().toString(), text: taskText, done: false });
@@ -426,7 +433,7 @@ export function activate(context: vscode.ExtensionContext) {
             return;
         }
 
-        const text = await vscode.window.showInputBox({ prompt: 'Editar tarefa', value: task.text });
+        const text = await vscode.window.showInputBox({ prompt: vscode.l10n.t('Edit task'), value: task.text });
         if (text === undefined || !text.trim()) {
             return;
         }
@@ -446,7 +453,7 @@ export function activate(context: vscode.ExtensionContext) {
     const showTaskCmd = vscode.commands.registerCommand('workspace-todo.showTask', async (taskClicked?: TaskReference) => {
         const task = storedTask(taskClicked);
         if (!task?.source) {
-            vscode.window.showInformationMessage('Esta tarefa não possui uma linha de código associada.');
+            vscode.window.showInformationMessage(vscode.l10n.t('This task has no associated code line.'));
             return;
         }
 
@@ -454,7 +461,7 @@ export function activate(context: vscode.ExtensionContext) {
         const document = await vscode.workspace.openTextDocument(uri);
         const range = getSourceRange(document, task.source, true);
         if (!range) {
-            vscode.window.showWarningMessage('A marcação desta tarefa não foi encontrada no arquivo.');
+            vscode.window.showWarningMessage(vscode.l10n.t('The marker for this task was not found in the file.'));
             return;
         }
         await vscode.window.showTextDocument(document, { selection: range, preview: false });
@@ -478,7 +485,7 @@ export function activate(context: vscode.ExtensionContext) {
         const task = storedTask(taskClicked);
         if (task) {
             await vscode.env.clipboard.writeText(task.text);
-            vscode.window.showInformationMessage('Tarefa copiada para o clipboard.');
+            vscode.window.showInformationMessage(vscode.l10n.t('Task copied to the clipboard.'));
         }
     });
 
@@ -489,12 +496,13 @@ export function activate(context: vscode.ExtensionContext) {
             return;
         }
 
+        const deleteAction = vscode.l10n.t('Delete');
         const confirmation = await vscode.window.showWarningMessage(
-            `Excluir a tarefa “${task.text}”?`,
+            vscode.l10n.t('Delete task "{0}"?', task.text),
             { modal: true },
-            'Excluir'
+            deleteAction
         );
-        if (confirmation === 'Excluir') {
+        if (confirmation === deleteAction) {
             if (task.stale) {
                 await context.workspaceState.update(TASKS_KEY, currentTasks.filter(current => current.id !== task.id));
             } else if (task.source) {

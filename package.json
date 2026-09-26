@@ -2,7 +2,7 @@
   "name": "vish",
   "displayName": "Vish",
   "description": "Deixou o código pela metade? O Vish te lembra o que você precisa terminar.",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "publisher": "gygaweb","license": "MIT",
   "repository": {
     "type": "git",
@@ -15,14 +15,21 @@
   "categories": [
     "Other"
   ],
+  "keywords": [
+    "tasks",
+    "todo",
+    "reminder",
+    "vish"
+  ],
   "activationEvents": ["onStartupFinished"],
   "main": "./dist/extension.js",
+  "l10n": "./l10n",
   "contributes": {
     "viewsContainers": {
       "activitybar": [
         {
           "id": "vish-explorer",
-          "title": "Vish!",
+          "title": "%view.container.title%",
           "icon": "$(checklist)"
         }
       ]
@@ -31,75 +38,90 @@
       "vish-explorer": [
         {
           "id": "vish-tasks",
-          "name": "Tarefas Pendentes"
+          "name": "%view.tasks.name%"
         }
       ]
     },
     "commands": [
       {
         "command": "workspace-todo.addTask",
-        "title": "Vish: Adicionar Tarefa",
+        "title": "%command.addTask%",
+        "category": "%category%",
         "icon": "$(add)"
       },
       {
         "command": "workspace-todo.toggleTask",
-        "title": "Alternar Status"
+        "title": "%command.toggleTask%",
+        "category": "%category%"
       },
       {
         "command": "workspace-todo.search",
-        "title": "Buscar Tarefas",
+        "title": "%command.search%",
+        "category": "%category%",
         "icon": "$(search)"
       },
       {
         "command": "workspace-todo.filterPriority",
-        "title": "Filtrar por Prioridade"
+        "title": "%command.filterPriority%",
+        "category": "%category%"
       },
       {
         "command": "workspace-todo.filterStatus",
-        "title": "Filtrar por Status"
+        "title": "%command.filterStatus%",
+        "category": "%category%"
       },
       {
         "command": "workspace-todo.toggleGrouping",
-        "title": "Agrupar por Arquivo"
+        "title": "%command.toggleGrouping%",
+        "category": "%category%"
       },
       {
         "command": "workspace-todo.clearView",
-        "title": "Limpar Busca e Filtros"
+        "title": "%command.clearView%",
+        "category": "%category%"
       },
       {
         "command": "workspace-todo.editTask",
-        "title": "Editar"
+        "title": "%command.editTask%",
+        "category": "%category%"
       },
       {
         "command": "workspace-todo.showTask",
-        "title": "Exibir"
+        "title": "%command.showTask%",
+        "category": "%category%"
       },
       {
         "command": "workspace-todo.completeTask",
-        "title": "Concluir"
+        "title": "%command.completeTask%",
+        "category": "%category%"
       },
       {
         "command": "workspace-todo.copyTask",
-        "title": "Copiar Tarefa",
+        "title": "%command.copyTask%",
+        "category": "%category%",
         "icon": "$(copy)"
       },
       {
         "command": "workspace-todo.deleteTask",
-        "title": "Excluir Tarefa",
+        "title": "%command.deleteTask%",
+        "category": "%category%",
         "icon": "$(trash)"
       },
       {
         "command": "workspace-todo.clearDone",
-        "title": "Limpar Concluídas"
+        "title": "%command.clearDone%",
+        "category": "%category%"
       },
       {
         "command": "workspace-todo.refresh",
-        "title": "Atualizar Lista",
+        "title": "%command.refresh%",
+        "category": "%category%",
         "icon": "$(refresh)"
       },
       {
         "command": "workspace-todo.clearStale",
-        "title": "Limpar Obsoletas"
+        "title": "%command.clearStale%",
+        "category": "%category%"
       }
     ],
     "keybindings": [

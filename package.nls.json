@@ -1,0 +1,20 @@
+{
+  "category": "Vish",
+  "view.container.title": "Vish!",
+  "view.tasks.name": "Pending Tasks",
+  "command.addTask": "Add Task",
+  "command.toggleTask": "Toggle Status",
+  "command.search": "Search Tasks",
+  "command.filterPriority": "Filter by Priority",
+  "command.filterStatus": "Filter by Status",
+  "command.toggleGrouping": "Group by File",
+  "command.clearView": "Clear Search and Filters",
+  "command.editTask": "Edit",
+  "command.showTask": "Show",
+  "command.completeTask": "Complete",
+  "command.copyTask": "Copy Task",
+  "command.deleteTask": "Delete Task",
+  "command.clearDone": "Clear Completed",
+  "command.refresh": "Refresh List",
+  "command.clearStale": "Clear Stale"
+}

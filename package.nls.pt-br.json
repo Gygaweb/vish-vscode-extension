@@ -1,0 +1,20 @@
+{
+  "category": "Vish",
+  "view.container.title": "Vish!",
+  "view.tasks.name": "Tarefas Pendentes",
+  "command.addTask": "Adicionar Tarefa",
+  "command.toggleTask": "Alternar Status",
+  "command.search": "Buscar Tarefas",
+  "command.filterPriority": "Filtrar por Prioridade",
+  "command.filterStatus": "Filtrar por Status",
+  "command.toggleGrouping": "Agrupar por Arquivo",
+  "command.clearView": "Limpar Busca e Filtros",
+  "command.editTask": "Editar",
+  "command.showTask": "Exibir",
+  "command.completeTask": "Concluir",
+  "command.copyTask": "Copiar Tarefa",
+  "command.deleteTask": "Excluir Tarefa",
+  "command.clearDone": "Limpar Concluídas",
+  "command.refresh": "Atualizar Lista",
+  "command.clearStale": "Limpar Obsoletas"
+}

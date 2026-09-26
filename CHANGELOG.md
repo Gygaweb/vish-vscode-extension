@@ -5,6 +5,14 @@ All notable changes to the Vish extension will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.6] - 2026-09-26
+
+### Added
+
+- Localization support: English (default) and Brazilian Portuguese for commands, views, and UI messages.
+- `Vish` category on all commands for consistent Command Palette grouping.
+- Marketplace keywords for discoverability.
+
 ## [0.0.5] - 2026-09-25
 
 - Add task search, priority/status filters, and grouping by source file.
@@ -32,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MIT license for the project.
 
 [unreleased]: https://github.com/Gygaweb/vish-vscode-extension/commits/main
+[0.0.6]: https://github.com/Gygaweb/vish-vscode-extension/releases/tag/v0.0.6
 [0.0.5]: https://github.com/Gygaweb/vish-vscode-extension/releases/tag/v0.0.5
 [0.0.4]: https://github.com/Gygaweb/vish-vscode-extension/releases/tag/v0.0.4
 [0.0.3]: https://github.com/Gygaweb/vish-vscode-extension/releases/tag/v0.0.3
